@@ -1,8 +1,10 @@
 package com.example.android.guesstheword.screens.game
 
-import android.util.Log
+import android.os.CountDownTimer
+import android.text.format.DateUtils
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Transformations
 import androidx.lifecycle.ViewModel
 
 /**
@@ -24,7 +26,39 @@ class GameViewModel : ViewModel() {
     val score: LiveData<Int>
         get() = _score
 
+    // Countdown time
+    private val _currentTime = MutableLiveData<Long>()
+    private val currentTime: LiveData<Long>
+        get() = _currentTime
+
+    // The String version of the current time
+    val currentTimeString: LiveData<String> = Transformations.map(currentTime) { time ->
+        DateUtils.formatElapsedTime(time)
+    }
+
+    // The String version of the current word hint
+    val wordHint: LiveData<String> = Transformations.map(word) { word ->
+        val randomPosition = (1..word.length).random()
+        "Current word has " + word.length + " letters" + "\nThe letter at position " +
+                randomPosition + " is " + word[randomPosition - 1].toUpperCase()
+    }
+
+    private val timer: CountDownTimer
+
     init {
+        // Creates a timer which triggers the end of the game when it finishes
+        timer = object : CountDownTimer(COUNTDOWN_TIME, ONE_SECOND) {
+            override fun onTick(millisUntilFinished: Long) {
+                _currentTime.value = millisUntilFinished / ONE_SECOND
+            }
+
+            override fun onFinish() {
+                _currentTime.value = DONE
+                onGameFinished()
+            }
+        }
+        timer.start()
+
         _word.value = ""
         _score.value = 0
         resetList()
@@ -69,7 +103,7 @@ class GameViewModel : ViewModel() {
      */
     private fun nextWord() {
         if (wordList.isEmpty())
-            onGameFinished()
+            resetList()
         else
         //Select and remove a word from the list
             _word.value = wordList.removeAt(0)
@@ -98,6 +132,18 @@ class GameViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        Log.i("GameViewModel", "GameViewModel destroyed!")
+        // Cancel the timer
+        timer.cancel()
+    }
+
+    companion object {
+        // Time when the game is over
+        private const val DONE = 0L
+
+        // Countdown game interval
+        private const val ONE_SECOND = 1000L
+
+        // Total time for the game
+        private const val COUNTDOWN_TIME = 60000L
     }
 }
